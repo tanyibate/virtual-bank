@@ -5,6 +5,7 @@ import database "example.com/virtual-bank/database"
 
 func main() {
 	database.InitDB()
-	virtualBank.StartBank(database.DB)
+	var userService virtualBank.BaseUserService
+	virtualBank.StartBank(database.DB, &userService)
 
 }
