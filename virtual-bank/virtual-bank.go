@@ -2,7 +2,6 @@ package virtualBank
 
 import (
 	"database/sql"
-	"example.com/virtual-bank/database"
 	"fmt"
 	"log"
 )
@@ -10,7 +9,7 @@ import (
 var accounts map[int]*Account = make(map[int]*Account)
 var session int
 
-func StartBank(db *sql.DB) {
+func StartBank(db *sql.DB, userService UserService) {
 	var actionChoice int
 
 	fmt.Println("What do you want do?")
@@ -24,18 +23,18 @@ func StartBank(db *sql.DB) {
 	fmt.Scan(&actionChoice)
 
 	if actionChoice == 1 {
-		newAccount := createAccount(db)
+		newAccount := createAccount(db, userService)
 		accounts[newAccount.bankAccountNumber] = &newAccount
 		session = newAccount.bankAccountNumber
-		StartBank(db)
+		StartBank(db, userService)
 	}
 
 	if session == 0 {
-		checkIfLoggedIn()
+		checkIfLoggedIn(db, userService)
 	}
 
 	// Protected Options
-	account, err := GetUserFromDB(session, db)
+	account, err := userService.GetAccount(session, db)
 	if err != nil {
 		log.Fatal(err)
 
@@ -45,13 +44,13 @@ func StartBank(db *sql.DB) {
 		fmt.Printf("Your balance is £%v \n", account.balance)
 
 	} else if actionChoice == 3 {
-		depositMoney(account.bankAccountNumber, db)
+		depositMoney(account.bankAccountNumber, db, userService)
 	}
-	StartBank(db)
+	StartBank(db, userService)
 
 }
 
-func createAccount(db *sql.DB) Account {
+func createAccount(db *sql.DB, userService UserService) Account {
 	var name string
 	var pin int
 	var income float64
@@ -63,7 +62,7 @@ func createAccount(db *sql.DB) Account {
 	var account = new(Account)
 	account.NewAccount(name, pin, income)
 
-	_, err := addUserToDB(account, db)
+	_, err := userService.AddAccount(account, db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,11 +83,11 @@ func withdrawMoney(amount float64, account Account) {
 
 }
 
-func depositMoney(accountNumber int, db *sql.DB) {
+func depositMoney(accountNumber int, db *sql.DB, userService UserService) {
 	fmt.Println("How much do you want to deposit?")
 	var amount float64
 	fmt.Scan(&amount)
-	balance, err := updateUserBalanceInDB(amount, accountNumber, db)
+	balance, err := userService.UpdateBalance(amount, accountNumber, db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,7 +105,7 @@ func getValueFromUser(field any, question string) {
 
 }
 
-func checkIfLoggedIn() {
+func checkIfLoggedIn(db *sql.DB, userService UserService) {
 	var bankAccountNumber int
 	var pin int
 	if session != 0 {
@@ -115,13 +114,13 @@ func checkIfLoggedIn() {
 	getValueFromUser(&bankAccountNumber, "What is your bank account number?")
 	getValueFromUser(&pin, "What is your pin?")
 
-	account, err := GetUserFromDB(bankAccountNumber, database.DB)
+	account, err := userService.GetAccount(bankAccountNumber, db)
 	if err != nil {
 		log.Fatal(err)
 	}
 	if account.pin != pin {
 		fmt.Println("Incorrect pin please try again")
-		checkIfLoggedIn()
+		checkIfLoggedIn(db, userService)
 	}
 
 }

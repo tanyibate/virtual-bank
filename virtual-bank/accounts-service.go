@@ -6,7 +6,15 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func addUserToDB(account *Account, db *sql.DB) (int, error) {
+type UserService interface {
+	AddAccount(account *Account, db *sql.DB) (int, error)
+	GetAccount(accountNumber int, db *sql.DB) (*Account, error)
+	UpdateBalance(amount float64, accountNumber int, db *sql.DB) (float64, error)
+}
+
+type BaseUserService struct{}
+
+func (b *BaseUserService) AddAccount(account *Account, db *sql.DB) (int, error) {
 	var accountNumber int
 	row := db.QueryRow("INSERT INTO accounts(name,pin,account_number,balance,overdraft_limit) VALUES($1, $2, $3, $4, $5) RETURNING account_number", account.name, account.pin, account.bankAccountNumber, account.balance, account.overdraftLimit)
 
@@ -20,9 +28,7 @@ func addUserToDB(account *Account, db *sql.DB) (int, error) {
 
 }
 
-type GetUser func(int, *sql.DB) (*Account, error)
-
-func GetUserFromDB(accountNumber int, db *sql.DB) (*Account, error) {
+func (b *BaseUserService) GetAccount(accountNumber int, db *sql.DB) (*Account, error) {
 	var account *Account = new(Account)
 	row := db.QueryRow("SELECT * FROM accounts WHERE account_number=$1", accountNumber)
 
@@ -38,9 +44,7 @@ func GetUserFromDB(accountNumber int, db *sql.DB) (*Account, error) {
 
 }
 
-type UpdateBalance func(float64, int, *sql.DB) (float64, error)
-
-func updateUserBalanceInDB(amount float64, accountNumber int, db *sql.DB) (float64, error) {
+func (b *BaseUserService) UpdateBalance(amount float64, accountNumber int, db *sql.DB) (float64, error) {
 	var balance float64
 	row := db.QueryRow("UPDATE accounts SET balance=$1 WHERE account_number=$2 RETURNING balance", amount, accountNumber)
 	if err := row.Scan(&balance); err != nil {
