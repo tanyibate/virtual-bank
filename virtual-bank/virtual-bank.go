@@ -1,11 +1,16 @@
 package virtualBank
 
-import "fmt"
+import (
+	"database/sql"
+	"example.com/virtual-bank/database"
+	"fmt"
+	"log"
+)
 
 var accounts map[int]*Account = make(map[int]*Account)
 var session int
 
-func StartBank() {
+func StartBank(db *sql.DB) {
 	var actionChoice int
 
 	fmt.Println("What do you want do?")
@@ -19,10 +24,10 @@ func StartBank() {
 	fmt.Scan(&actionChoice)
 
 	if actionChoice == 1 {
-		newAccount := createAccount()
+		newAccount := createAccount(db)
 		accounts[newAccount.bankAccountNumber] = &newAccount
 		session = newAccount.bankAccountNumber
-		StartBank()
+		StartBank(db)
 	}
 
 	if session == 0 {
@@ -30,25 +35,23 @@ func StartBank() {
 	}
 
 	// Protected Options
-	account, ok := accounts[session]
-	if ok {
-		fmt.Printf("Welcome back %v \n", account.name)
+	account, err := GetUserFromDB(session, db)
+	if err != nil {
+		log.Fatal(err)
 
-	} else {
-		fmt.Println("There was an issue with accessing your bank account")
 	}
 
 	if actionChoice == 2 {
 		fmt.Printf("Your balance is £%v \n", account.balance)
 
 	} else if actionChoice == 3 {
-		depositMoney(account)
+		depositMoney(account.bankAccountNumber, db)
 	}
-	StartBank()
+	StartBank(db)
 
 }
 
-func createAccount() Account {
+func createAccount(db *sql.DB) Account {
 	var name string
 	var pin int
 	var income float64
@@ -59,6 +62,11 @@ func createAccount() Account {
 
 	var account = new(Account)
 	account.NewAccount(name, pin, income)
+
+	_, err := addUserToDB(account, db)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Printf("Successfully created a bank account for %v with number: %v and overdraft limit of £%v\n", account.name, account.bankAccountNumber, account.overdraftLimit)
 
@@ -76,11 +84,14 @@ func withdrawMoney(amount float64, account Account) {
 
 }
 
-func depositMoney(account *Account) {
+func depositMoney(accountNumber int, db *sql.DB) {
 	fmt.Println("How much do you want to deposit?")
 	var amount float64
 	fmt.Scan(&amount)
-	balance := account.DepositMoney(amount)
+	balance, err := updateUserBalanceInDB(amount, accountNumber, db)
+	if err != nil {
+		log.Fatal(err)
+	}
 	fmt.Printf("Your new balance is £%v\n", balance)
 }
 
@@ -103,7 +114,12 @@ func checkIfLoggedIn() {
 	}
 	getValueFromUser(&bankAccountNumber, "What is your bank account number?")
 	getValueFromUser(&pin, "What is your pin?")
-	if accounts[bankAccountNumber].pin != pin {
+
+	account, err := GetUserFromDB(bankAccountNumber, database.DB)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if account.pin != pin {
 		fmt.Println("Incorrect pin please try again")
 		checkIfLoggedIn()
 	}
