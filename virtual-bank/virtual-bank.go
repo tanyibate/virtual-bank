@@ -9,18 +9,14 @@ import (
 var accounts map[int]*Account = make(map[int]*Account)
 var session int
 
+// Monkey hoisted functions
+var Scan = fmt.Scan
+var GetValueFromUser = getValueFromUser
+
 func StartBank(db *sql.DB, userService UserService) {
 	var actionChoice int
 
-	fmt.Println("What do you want do?")
-	fmt.Println("1. Create an account")
-	fmt.Println("2. Check balance")
-	fmt.Println("3. Deposit money")
-	fmt.Println("4. Withdraw money")
-	fmt.Println("5. Transfer money")
-	fmt.Println("6. Close your account")
-
-	fmt.Scan(&actionChoice)
+	GetValueFromUser(&actionChoice, "What do you want do? \n1. Create an account\n2. Check balance\n3. Deposit money\n4. Withdraw money\n5. Transfer money\n6. Close your account")
 
 	if actionChoice == 1 {
 		newAccount := createAccount(db, userService)
@@ -55,9 +51,9 @@ func createAccount(db *sql.DB, userService UserService) Account {
 	var pin int
 	var income float64
 
-	getValueFromUser(&name, "What is your name? ")
-	getValueFromUser(&pin, "What would you like your pin to be? ")
-	getValueFromUser(&income, "What is your income? ")
+	GetValueFromUser(&name, "What is your name? ")
+	GetValueFromUser(&pin, "What would you like your pin to be? ")
+	GetValueFromUser(&income, "What is your income? ")
 
 	var account = new(Account)
 	account.NewAccount(name, pin, income)
@@ -84,25 +80,13 @@ func withdrawMoney(amount float64, account Account) {
 }
 
 func depositMoney(accountNumber int, db *sql.DB, userService UserService) {
-	fmt.Println("How much do you want to deposit?")
 	var amount float64
-	fmt.Scan(&amount)
+	GetValueFromUser(&amount, "How much do you want to deposit?")
 	balance, err := userService.UpdateBalance(amount, accountNumber, db)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Your new balance is £%v\n", balance)
-}
-
-func getValueFromUser(field any, question string) {
-	fmt.Print(question)
-	_, err := fmt.Scan(field)
-	if err != nil {
-		fmt.Println("You entered it wrong please try again")
-		getValueFromUser(field, question)
-
-	}
-
 }
 
 func checkIfLoggedIn(db *sql.DB, userService UserService) {
@@ -111,8 +95,8 @@ func checkIfLoggedIn(db *sql.DB, userService UserService) {
 	if session != 0 {
 		return
 	}
-	getValueFromUser(&bankAccountNumber, "What is your bank account number?")
-	getValueFromUser(&pin, "What is your pin?")
+	GetValueFromUser(&bankAccountNumber, "What is your bank account number?")
+	GetValueFromUser(&pin, "What is your pin?")
 
 	account, err := userService.GetAccount(bankAccountNumber, db)
 	if err != nil {
@@ -121,6 +105,17 @@ func checkIfLoggedIn(db *sql.DB, userService UserService) {
 	if account.pin != pin {
 		fmt.Println("Incorrect pin please try again")
 		checkIfLoggedIn(db, userService)
+	}
+
+}
+
+func getValueFromUser(field any, question string) {
+	fmt.Println(question)
+	_, err := Scan(field)
+	if err != nil {
+		fmt.Println("You entered it wrong please try again")
+		getValueFromUser(field, question)
+
 	}
 
 }
